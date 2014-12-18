@@ -4,6 +4,9 @@ import urllib.request
 import json
 import sys
 import os
+import socket
+
+socket.setdefaulttimeout(60)
 
 URL = 'https://tinypng.com/web/shrink'
 
@@ -42,13 +45,7 @@ def format_size(size):
 def save_file(url, path):
     urllib.request.urlretrieve(url, path)
 
-def main():
-    if len(sys.argv) < 3:
-        print('Usage: python3 tinypng [source] [target]')
-        sys.exit(0)
-    srcpath = sys.argv[1]
-    descpath = sys.argv[2]
-	
+def tinydir(srcpath, descpath):
     if not os.path.exists(descpath):
         os.makedirs(descpath)
 
@@ -96,6 +93,29 @@ def main():
         print('fails: ' + str(len(fail_files)))
         for fail in fail_files:
             print(fail)    
+def tinyfile(srcfile, descfile):
+    filename = os.path.basename(srcfile)
+    result = tinypng(srcfile)
+    if 'input' in result and 'output' in result:
+        save_file(result['output']['url'], descfile)
+        inputsize = result['input']['size']
+        outputsize = result['output']['size']
+        ratio = result['output']['ratio']
+        print('{0}\t{1}\t{2}\t-{3}%'.format(filename, format_size(inputsize), format_size(outputsize), 100 - round(ratio * 100)))
+
+def main():
+    if len(sys.argv) < 3:
+        print('Usage: python3 tinypng [source] [target]')
+        sys.exit(0)
+    srcpath = sys.argv[1]
+    descpath = sys.argv[2]
+    if os.path.exists(srcpath):
+        if os.path.isdir(srcpath):
+            tinydir(srcpath, descpath)
+        elif os.path.isfile(srcpath):
+            tinyfile(srcpath, descpath)
+    else:
+        print('Source file or folder does not exists!')
 
 
 if __name__ == '__main__':
