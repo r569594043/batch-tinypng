@@ -5,8 +5,8 @@ import json
 import sys
 import os
 import socket
-
-socket.setdefaulttimeout(60)
+from optparse import OptionParser
+import sys
 
 URL = 'https://tinypng.com/web/shrink'
 
@@ -30,7 +30,10 @@ def tinypng(path):
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.143 Safari/537.36'
     }
     req = urllib.request.Request(URL, data = data, headers = headers)
-    resp = urllib.request.urlopen(req)
+    if opener:
+        resp = opener.open(req)
+    else:
+        resp = urllib.request.urlopen(req)
     return json.loads(resp.read().decode('utf-8'))
 
 
@@ -42,8 +45,17 @@ def format_size(size):
     else:
         return str(round(size/1024/1024, 1)) + 'MB'
 
+def retrieve(url, path):
+    resp = opener.open(url)
+    f = open(path, "wb")
+    f.write(resp.read())
+    f.close()
+
 def save_file(url, path):
-    urllib.request.urlretrieve(url, path)
+    if opener:
+        retrieve(url, path)
+    else:
+        urllib.request.urlretrieve(url, path)
 
 def tinydir(srcpath, descpath):
     if not os.path.exists(descpath):
@@ -104,16 +116,41 @@ def tinyfile(srcfile, descfile):
         print('{0}\t{1}\t{2}\t-{3}%'.format(filename, format_size(inputsize), format_size(outputsize), 100 - round(ratio * 100)))
 
 def main():
-    if len(sys.argv) < 3:
-        print('Usage: python3 tinypng [source] [target]')
-        sys.exit(0)
-    srcpath = sys.argv[1]
-    descpath = sys.argv[2]
-    if os.path.exists(srcpath):
-        if os.path.isdir(srcpath):
-            tinydir(srcpath, descpath)
-        elif os.path.isfile(srcpath):
-            tinyfile(srcpath, descpath)
+    usage = "usage: %prog [options] INPUT OUTPUT"
+
+    parser = OptionParser(usage)
+    parser.add_option("-p", "--proxy", dest="proxy", metavar="PROXY", default=None,
+                      help="proxy")
+    (options, args) = parser.parse_args()
+    input = None
+    output = None
+    proxy = None
+
+    if not input and len(args) > 0:
+        input = args[0]
+        if not output and len(args) > 1:
+            output = args[1]
+
+    if options.proxy:
+        proxy = options.proxy
+
+    if not input or not output:
+        print("Error: input and output can't be empty!")
+        parser.print_help()
+        sys.exit()
+    global opener
+    opener = None
+    if proxy:
+        proxy_handler = urllib.request.ProxyHandler({'https': proxy})
+        opener = urllib.request.build_opener(urllib.request.HTTPHandler, proxy_handler)
+        
+    socket.setdefaulttimeout(60)
+    
+    if os.path.exists(input):
+        if os.path.isdir(input):
+            tinydir(input, output)
+        elif os.path.isfile(input):
+            tinyfile(input, output)
     else:
         print('Source file or folder does not exists!')
 
