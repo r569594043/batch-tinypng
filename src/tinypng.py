@@ -52,6 +52,9 @@ def retrieve(url, path):
     f.close()
 
 def save_file(url, path):
+    dirname = os.path.dirname(path)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     if opener:
         retrieve(url, path)
     else:
